@@ -25,7 +25,12 @@ def cmd_serve(args: argparse.Namespace) -> int:
         settings.port = args.port
     app = create_app(settings)
     print(f"oxpipe {__version__} listening on http://{settings.host}:{settings.port}", file=sys.stderr)
-    print(f"upstream={settings.upstream} models={settings.models or ['off']}", file=sys.stderr)
+    print(f"dashboard http://{settings.host}:{settings.port}/", file=sys.stderr)
+    print(
+        f"upstream={settings.upstream} models={settings.models or ['off']} "
+        f"counterfactual={settings.counterfactual}",
+        file=sys.stderr,
+    )
     uvicorn.run(app, host=settings.host, port=settings.port, log_level="info")
     return 0
 

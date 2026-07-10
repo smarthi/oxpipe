@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, fields, replace
-from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import BaseModel, ConfigDict
 
 from oxpipe.config import Settings, default_profiles_path
 
 
-@dataclass(frozen=True)
-class RenderProfile:
+class RenderProfile(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     cell_w: int = 6
     cell_h: int = 10
     columns: int = 120
@@ -26,21 +26,19 @@ class RenderProfile:
 
     @property
     def usable_rows(self) -> int:
-        rows = max(1, self.max_height_px // self.cell_h - self.header_rows)
-        return rows
+        return max(1, self.max_height_px // self.cell_h - self.header_rows)
 
     @property
     def page_width(self) -> int:
-        # Prefer strip_width; also fit columns * cell_w + padding
         content_w = self.columns * self.cell_w + 16
         return max(self.strip_width_px, content_w)
 
 
 def _as_profile(data: dict[str, Any], base: RenderProfile | None = None) -> RenderProfile:
     base = base or RenderProfile()
-    allowed = {f.name for f in fields(RenderProfile)}
+    allowed = set(RenderProfile.model_fields)
     kwargs = {k: v for k, v in data.items() if k in allowed}
-    return replace(base, **kwargs)
+    return base.model_copy(update=kwargs)
 
 
 def load_profile_map(settings: Settings) -> dict[str, RenderProfile]:
@@ -68,9 +66,8 @@ def load_profile_map(settings: Settings) -> dict[str, RenderProfile]:
 def resolve_profile(model: str | None, profiles: dict[str, RenderProfile], default_detail: str) -> RenderProfile:
     if not model:
         p = profiles.get("gpt-5.6", RenderProfile())
-        return replace(p, detail=default_detail or p.detail)
+        return p.model_copy(update={"detail": default_detail or p.detail})
     m = model.lower()
-    # longest prefix match
     best: str | None = None
     for key in profiles:
         if m == key or m.startswith(key):
@@ -78,4 +75,4 @@ def resolve_profile(model: str | None, profiles: dict[str, RenderProfile], defau
                 best = key
     p = profiles[best] if best else profiles.get("gpt-5.6", RenderProfile())
     detail = default_detail or p.detail
-    return replace(p, detail=detail)
+    return p.model_copy(update={"detail": detail})

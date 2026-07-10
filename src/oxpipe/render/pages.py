@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import textwrap
-from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
+from pydantic import BaseModel, ConfigDict
 
 from oxpipe.render.fonts import load_font
 from oxpipe.render.profiles import RenderProfile
@@ -11,8 +11,9 @@ from oxpipe.render.profiles import RenderProfile
 BANNER = "oxpipe context page — prefer fact-sheet for exact ids/paths"
 
 
-@dataclass
-class RenderedPage:
+class RenderedPage(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     index: int
     total: int
     png: bytes
@@ -27,7 +28,6 @@ def _wrap_lines(text: str, columns: int) -> list[str]:
         if raw == "":
             lines.append("")
             continue
-        # Preserve leading indentation roughly
         wrapped = textwrap.wrap(
             raw,
             width=columns,
@@ -69,7 +69,6 @@ def render_text_to_pages(text: str, profile: RenderProfile) -> list[RenderedPage
             draw.text((pad_x, y), line[: profile.columns], fill=(20, 20, 20), font=font)
             page_text_lines.append(line)
             y += profile.cell_h
-        # PNG bytes
         import io
 
         buf = io.BytesIO()

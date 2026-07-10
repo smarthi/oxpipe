@@ -42,15 +42,22 @@ def summarize_events(path: Path) -> dict[str, Any]:
     rows = read_events(path)
     applied = [r for r in rows if r.get("applied")]
     gated = [r for r in rows if r.get("reason") == "not_profitable"]
-    baseline = sum(int(r.get("baseline_tokens") or 0) for r in applied)
-    image_est = sum(int(r.get("image_tokens_est") or 0) for r in applied)
-    saved = baseline - image_est
+    baseline = sum(float(r.get("baseline_tokens") or 0) for r in applied)
+    actual = sum(float(r.get("input_tokens") or 0) for r in applied)
+    image_est = sum(float(r.get("image_tokens_est") or 0) for r in applied)
+    saved_eff = sum(float(r.get("saved_eff") or 0) for r in applied)
+    baseline_eff = sum(float(r.get("baseline_eff") or 0) for r in applied)
     return {
         "events": len(rows),
         "applied": len(applied),
         "not_profitable": len(gated),
         "baseline_tokens_sum": baseline,
+        "input_tokens_sum": actual,
         "image_tokens_est_sum": image_est,
-        "saved_tokens_est_sum": saved,
-        "saved_frac_est": (saved / baseline) if baseline else 0.0,
+        "saved_eff_sum": saved_eff,
+        "baseline_eff_sum": baseline_eff,
+        "saved_frac": (saved_eff / baseline_eff) if baseline_eff else 0.0,
+        # legacy aliases
+        "saved_tokens_est_sum": saved_eff,
+        "saved_frac_est": (saved_eff / baseline_eff) if baseline_eff else 0.0,
     }

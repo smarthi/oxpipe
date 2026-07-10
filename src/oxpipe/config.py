@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 def _env(name: str, default: str) -> str:
@@ -18,19 +19,19 @@ def _env_int(name: str, default: int) -> int:
     return int(raw)
 
 
-@dataclass
-class Settings:
+class Settings(BaseModel):
     host: str = "127.0.0.1"
     port: int = 47822
     upstream: str = "https://api.openai.com"
-    models: list[str] = field(default_factory=list)  # empty / off => imaging disabled
+    models: list[str] = Field(default_factory=list)  # empty / off => imaging disabled
     live_tail: int = 3
     detail: str = "high"
-    events_path: Path = field(default_factory=lambda: Path.home() / ".oxpipe" / "events.jsonl")
+    events_path: Path = Field(default_factory=lambda: Path.home() / ".oxpipe" / "events.jsonl")
     min_chars: int = 6000
     profiles_path: Path | None = None
-    profile_overrides: dict[str, Any] = field(default_factory=dict)
+    profile_overrides: dict[str, Any] = Field(default_factory=dict)
     cache_read_rate: float = 0.1
+    counterfactual: bool = True  # live POST /v1/responses/input_tokens probe
 
     @property
     def imaging_enabled(self) -> bool:
@@ -51,6 +52,13 @@ def _parse_models(raw: str) -> list[str]:
     if not raw or raw.lower() in {"off", "0", "false", "none"}:
         return []
     return [p.strip().lower() for p in raw.split(",") if p.strip()]
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def load_settings() -> Settings:
@@ -78,6 +86,7 @@ def load_settings() -> Settings:
         min_chars=max(0, _env_int("OXPIPE_MIN_CHARS", 6000)),
         profiles_path=profiles_path,
         profile_overrides=overrides if isinstance(overrides, dict) else {},
+        counterfactual=_env_bool("OXPIPE_COUNTERFACTUAL", True),
     )
 
 
@@ -104,7 +113,9 @@ def summarize_settings(s: Settings) -> str:
             "live_tail": s.live_tail,
             "detail": s.detail,
             "min_chars": s.min_chars,
+            "counterfactual": s.counterfactual,
             "events": str(s.events_path),
+            "dashboard": f"http://{s.host}:{s.port}/",
         },
         indent=2,
     )

@@ -35,6 +35,8 @@ Other OpenAI model ids may hit the proxy as passthrough; **imaging is first-clas
 | Day-one APIs | **Both** `/v1/responses` and `/v1/chat/completions` |
 | Product posture | **Daily-driver proxy** (reliability > research novelty) |
 | Imaging default | **Proxy on, imaging off** until 5.5/5.6 ids are allowlisted (see §5) |
+| Dashboard | Live UI at `/` with kill switch + model chips |
+| Counterfactual | Live `POST /v1/responses/input_tokens` + response `usage` (cache-honest) |
 
 ### Clarifying “imaging default”
 

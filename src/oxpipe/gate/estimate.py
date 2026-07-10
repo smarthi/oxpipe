@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 from oxpipe.render.profiles import RenderProfile
 
@@ -39,13 +40,11 @@ def estimate_image_tokens(width: int, height: int, profile: RenderProfile) -> in
     if detail == "low":
         return max(1, int(85 * profile.patch_multiplier))
     if detail in {"high", "auto"}:
-        # Approximate: fit short side near 768 without exploding long side
-        short, long = (w, h) if w <= h else (h, w)
+        short, _long = (w, h) if w <= h else (h, w)
         if short > 768:
             scale = 768 / short
             w = max(1, int(w * scale))
             h = max(1, int(h * scale))
-    # original / high after resize
     patches = math.ceil(w / 32) * math.ceil(h / 32)
     return max(1, int(math.ceil(patches * profile.patch_multiplier)))
 
@@ -54,8 +53,7 @@ def estimate_pages_tokens(pages: list[tuple[int, int]], profile: RenderProfile) 
     return sum(estimate_image_tokens(w, h, profile) for w, h in pages)
 
 
-@dataclass
-class GateDecision:
+class GateDecision(BaseModel):
     image: bool
     reason: str
     text_tokens: int
@@ -64,9 +62,19 @@ class GateDecision:
 
 def should_image(text: str, page_dims: list[tuple[int, int]], profile: RenderProfile, min_chars: int) -> GateDecision:
     if len(text) < min_chars:
-        return GateDecision(False, "below_min_chars", estimate_text_tokens(text), 0)
+        return GateDecision(
+            image=False,
+            reason="below_min_chars",
+            text_tokens=estimate_text_tokens(text),
+            image_tokens=0,
+        )
     text_tokens = estimate_text_tokens(text)
     image_tokens = estimate_pages_tokens(page_dims, profile)
     if image_tokens < text_tokens:
-        return GateDecision(True, "ok", text_tokens, image_tokens)
-    return GateDecision(False, "not_profitable", text_tokens, image_tokens)
+        return GateDecision(image=True, reason="ok", text_tokens=text_tokens, image_tokens=image_tokens)
+    return GateDecision(
+        image=False,
+        reason="not_profitable",
+        text_tokens=text_tokens,
+        image_tokens=image_tokens,
+    )
