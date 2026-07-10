@@ -33,6 +33,64 @@ export OPENAI_BASE_URL=http://127.0.0.1:47822/v1
 # keep using your normal OPENAI_API_KEY
 ```
 
+## Use with Codex Desktop
+
+Codex Desktop does **not** reliably pick up a shell `OPENAI_BASE_URL`. Configure the proxy in **user-level** `~/.codex/config.toml` (project-local `.codex/config.toml` ignores provider/base URL keys).
+
+### 1. Start oxpipe
+
+```bash
+cd ~/projects/oxpipe
+source .venv/bin/activate
+export OXPIPE_MODELS=gpt-5.5,gpt-5.6
+oxpipe serve
+```
+
+Dashboard: http://127.0.0.1:47822/
+
+### 2. Point Codex at oxpipe
+
+Edit `~/.codex/config.toml`:
+
+```toml
+# use a GPT-5.5 / GPT-5.6 model id you actually have
+model = "gpt-5.6"
+
+# preferred: override the built-in OpenAI provider
+openai_base_url = "http://127.0.0.1:47822/v1"
+```
+
+Alternative — custom provider:
+
+```toml
+model = "gpt-5.6"
+model_provider = "oxpipe"
+
+[model_providers.oxpipe]
+name = "oxpipe"
+base_url = "http://127.0.0.1:47822/v1"
+wire_api = "responses"
+env_key = "OPENAI_API_KEY"
+```
+
+### 3. Restart Codex Desktop
+
+Quit and reopen the app so it reloads `config.toml`.
+
+### 4. Confirm traffic
+
+Open a coding session, then check:
+
+- Dashboard recent rows for `/v1/responses`
+- `tail -n 5 ~/.oxpipe/events.jsonl`
+
+### Notes
+
+- Auth stays your normal Codex / ChatGPT login or `OPENAI_API_KEY`; oxpipe only changes the base URL and forwards `Authorization`.
+- Codex uses the **Responses** API (`/v1/responses`), which oxpipe supports.
+- Warm, nearly fully cached prompts can show a low Saved % even when oxpipe is working; savings show up more when large uncached slabs or history collapse are imaged.
+- Bail out: dashboard kill switch, or comment out `openai_base_url` and restart Codex.
+
 ## Dashboard
 
 With `oxpipe serve` running, open:
