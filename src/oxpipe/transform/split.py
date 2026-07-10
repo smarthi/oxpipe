@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
 
+from pydantic import BaseModel, Field
 
-@dataclass
-class SplitResult:
+
+class SplitResult(BaseModel):
     """Text blocks eligible for imaging vs kept as live text."""
 
-    to_image: list[str]
-    """Concatenated bulky text slices (system / old history / large tool results)."""
-
-    # For chat/responses we mutate in place via helpers; this holds extracted blobs.
+    to_image: list[str] = Field(default_factory=list)
     total_imaged_chars: int = 0
 
 

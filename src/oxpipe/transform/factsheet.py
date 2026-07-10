@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+
+from pydantic import BaseModel, Field
 
 HEX_RE = re.compile(r"\b[0-9a-fA-F]{8,64}\b")
 UUID_RE = re.compile(
@@ -14,15 +15,14 @@ ARN_RE = re.compile(r"\barn:aws:[^\s\"']+")
 SECRETISH_RE = re.compile(r"\b(?:sk-|rk-|ghp_|xox[baprs]-)[A-Za-z0-9_\-]{8,}\b")
 
 
-@dataclass
-class FactSheet:
-    hex_ids: list[str] = field(default_factory=list)
-    uuids: list[str] = field(default_factory=list)
-    paths: list[str] = field(default_factory=list)
-    ports: list[str] = field(default_factory=list)
-    emails: list[str] = field(default_factory=list)
-    arns: list[str] = field(default_factory=list)
-    secrets: list[str] = field(default_factory=list)
+class FactSheet(BaseModel):
+    hex_ids: list[str] = Field(default_factory=list)
+    uuids: list[str] = Field(default_factory=list)
+    paths: list[str] = Field(default_factory=list)
+    ports: list[str] = Field(default_factory=list)
+    emails: list[str] = Field(default_factory=list)
+    arns: list[str] = Field(default_factory=list)
+    secrets: list[str] = Field(default_factory=list)
 
     def is_empty(self) -> bool:
         return not any(
@@ -58,7 +58,6 @@ def extract_factsheet(text: str) -> FactSheet:
     uuids = UUID_RE.findall(text)
     hex_ids = [h for h in HEX_RE.findall(text) if len(h) >= 8]
     paths = [m.group(1) for m in PATH_RE.finditer(text)]
-    # Filter noisy short relative tokens
     paths = [p for p in paths if ("/" in p or "\\" in p) and len(p) >= 4][:40]
     ports = PORT_RE.findall(text)
     emails = EMAIL_RE.findall(text)

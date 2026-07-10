@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass, field
 from typing import Any
+
+from pydantic import BaseModel, Field
 
 from oxpipe.config import Settings
 from oxpipe.gate.estimate import should_image
@@ -11,8 +12,7 @@ from oxpipe.render.profiles import RenderProfile, load_profile_map, resolve_prof
 from oxpipe.transform.factsheet import extract_factsheet
 
 
-@dataclass
-class TransformResult:
+class TransformResult(BaseModel):
     body: dict[str, Any]
     applied: bool
     reason: str
@@ -20,7 +20,7 @@ class TransformResult:
     baseline_tokens: int = 0
     image_tokens_est: int = 0
     model: str | None = None
-    extras: dict[str, Any] = field(default_factory=dict)
+    extras: dict[str, Any] = Field(default_factory=dict)
 
 
 def _png_data_url(png: bytes) -> str:
