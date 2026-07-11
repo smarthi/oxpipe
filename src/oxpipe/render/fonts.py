@@ -10,12 +10,18 @@ from PIL import ImageFont
 def load_font(name: str, size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
     """Load a monospace font; fall back to Pillow default."""
     candidates: list[Path] = []
-    # Common Linux / WSL paths
+    # Common Linux / WSL / macOS font locations
     for base in (
         Path("/usr/share/fonts"),
         Path("/usr/local/share/fonts"),
+        Path("/Library/Fonts"),
+        Path("/System/Library/Fonts"),
+        Path("/System/Library/Fonts/Supplemental"),
+        Path.home() / "Library" / "Fonts",
         Path.home() / ".fonts",
         Path.home() / ".local/share/fonts",
+        Path("/opt/homebrew/share/fonts"),
+        Path("/usr/local/share/fonts"),
     ):
         if not base.exists():
             continue
@@ -25,8 +31,12 @@ def load_font(name: str, size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeF
             "**/LiberationMono-Regular.ttf",
             "**/UbuntuMono-R.ttf",
             "**/NotoSansMono-Regular.ttf",
-            "**/JetBrainsMono-Regular.ttf",
+            "**/JetBrainsMono*.ttf",
             "**/Courier New.ttf",
+            "**/CourierNew.ttf",
+            "**/Menlo.ttc",
+            "**/Monaco.ttf",
+            "**/SFMono-Regular.otf",
             "**/cour.ttf",
         ):
             candidates.extend(base.glob(pattern))
@@ -45,4 +55,4 @@ def font_available() -> tuple[bool, str]:
     font = load_font("DejaVuSansMono", 12)
     if isinstance(font, ImageFont.FreeTypeFont):
         return True, getattr(font, "path", "truetype")
-    return False, "PIL default (install fonts-dejavu-core for better glyphs)"
+    return False, "PIL default (install DejaVu/JetBrains Mono — apt fonts-dejavu-core or brew font-dejavu)"

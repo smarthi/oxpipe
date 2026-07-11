@@ -8,14 +8,35 @@ Design: [SPEC.md](./SPEC.md)
 
 ## Install
 
+### Linux / WSL
+
 ```bash
 cd ~/projects/oxpipe
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
 Optional (better glyphs): `sudo apt install fonts-dejavu-core`
+
+### macOS
+
+Requires **Python 3.11+** (Homebrew recommended):
+
+```bash
+# once
+brew install python@3.12
+# optional monospace font for clearer PNG pages
+brew install --cask font-dejavu font-jetbrains-mono
+
+cd ~/projects/oxpipe   # or wherever you cloned the repo
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+oxpipe doctor          # should report a real TTF path under Fonts, not "PIL default"
+```
+
+Apple Silicon and Intel Macs both work. Keep the terminal session with `.venv` activated when you `oxpipe serve`.
 
 ## Quick start
 
@@ -90,6 +111,44 @@ Open a coding session, then check:
 - Codex uses the **Responses** API (`/v1/responses`), which oxpipe supports.
 - Warm, nearly fully cached prompts can show a low Saved % even when oxpipe is working; savings show up more when large uncached slabs or history collapse are imaged.
 - Bail out: dashboard kill switch, or comment out `openai_base_url` and restart Codex.
+
+## Run on macOS (Codex Desktop)
+
+Typical Mac workflow:
+
+```bash
+# Terminal 1 — proxy
+cd ~/projects/oxpipe
+source .venv/bin/activate
+export OXPIPE_MODELS=gpt-5.5,gpt-5.6
+oxpipe serve
+```
+
+Open the dashboard in Safari/Chrome: **http://127.0.0.1:47822/**
+
+Edit **`~/.codex/config.toml`** (same path on macOS as Linux):
+
+```toml
+model = "gpt-5.6"
+openai_base_url = "http://127.0.0.1:47822/v1"
+```
+
+Then **fully quit Codex** (Codex menu → Quit, or `Cmd+Q`) and reopen it so the config reloads.
+
+Confirm:
+
+```bash
+# Terminal 2
+tail -f ~/.oxpipe/events.jsonl
+# use Codex; you should see /v1/responses rows appear
+```
+
+macOS notes:
+
+- Use `127.0.0.1`, not `localhost`, if anything fails to connect (IPv6 `::1` quirks).
+- Local firewall prompts: allow Python/oxpipe inbound on port **47822** if macOS asks.
+- Events and config live under your home directory: `~/.oxpipe/`, `~/.codex/`.
+- `oxpipe doctor` checks fonts + prints the dashboard URL.
 
 ## Dashboard
 
