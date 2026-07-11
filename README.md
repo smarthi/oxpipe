@@ -51,14 +51,53 @@ oxpipe serve
 
 # 3) Point OpenAI clients at the proxy
 export OPENAI_BASE_URL=http://127.0.0.1:47822/v1
-# keep using your normal OPENAI_API_KEY
+# funded platform key required (ChatGPT login is not enough through oxpipe)
+export OPENAI_API_KEY=sk-...
 ```
 
 ## Use with Codex Desktop
 
-Codex Desktop does **not** reliably pick up a shell `OPENAI_BASE_URL`. Configure the proxy in **user-level** `~/.codex/config.toml` (project-local `.codex/config.toml` ignores provider/base URL keys).
+oxpipe fronts **`https://api.openai.com`**. That path needs a **funded OpenAI platform API key** (`OPENAI_API_KEY`). ChatGPT / Codex subscription login is **not** enough.
 
-### 1. Start oxpipe
+Why: ChatGPT OAuth tokens work on Codex’s own backend (`chatgpt.com/backend-api/...`), but they lack the `api.responses.write` scope required by `POST /v1/responses`. Pointing Codex at oxpipe with only ChatGPT login yields:
+
+```text
+401 Unauthorized — Missing scopes: api.responses.write
+```
+
+(often with a `cf-ray` header from OpenAI’s edge, forwarded through oxpipe)
+
+Codex Desktop also does **not** reliably pick up a shell `OPENAI_BASE_URL`. Configure everything in **user-level** `~/.codex/config.toml` (project-local `.codex/config.toml` ignores provider / base URL keys).
+
+### 1. Create and fund an API key
+
+1. Create a key at [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+2. Ensure the org has billing / credits at [platform.openai.com/settings/organization/billing](https://platform.openai.com/settings/organization/billing)
+3. Without funding you may still see oxpipe dashboard hits, then Codex errors like **“you have hit your usage limit”**
+
+Export for CLI clients:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+**macOS Codex Desktop** does not read `~/.zshrc`. Give the Dock/Spotlight app the key, then fully restart Codex:
+
+```bash
+launchctl setenv OPENAI_API_KEY "sk-..."
+# then Cmd+Q Codex and reopen
+```
+
+Or launch Codex from a shell that already has the variable:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+open -a "Codex"   # app name may vary (ChatGPT / Codex)
+```
+
+### 2. Start oxpipe with imaging allowlisted
+
+Default `OXPIPE_MODELS=off` still proxies, but **does not log events or bump dashboard counters**. Allowlist the model you use (GPT-5.5 is fine):
 
 ```bash
 cd ~/projects/oxpipe
@@ -67,24 +106,15 @@ export OXPIPE_MODELS=gpt-5.5,gpt-5.6
 oxpipe serve
 ```
 
-Dashboard: http://127.0.0.1:47822/
+Dashboard: http://127.0.0.1:47822/  
+(You can also flip model chips there; keep the compression kill switch **on**.)
 
-### 2. Point Codex at oxpipe
+### 3. Point Codex at oxpipe (`~/.codex/config.toml`)
 
-Edit `~/.codex/config.toml`:
-
-```toml
-# use a GPT-5.5 / GPT-5.6 model id you actually have
-model = "gpt-5.6"
-
-# preferred: override the built-in OpenAI provider
-openai_base_url = "http://127.0.0.1:47822/v1"
-```
-
-Alternative — custom provider:
+Use a **custom provider** with `env_key = "OPENAI_API_KEY"` (required name — not `OPEN_API_KEY`):
 
 ```toml
-model = "gpt-5.6"
+model = "gpt-5.5"
 model_provider = "oxpipe"
 
 [model_providers.oxpipe]
@@ -94,62 +124,49 @@ wire_api = "responses"
 env_key = "OPENAI_API_KEY"
 ```
 
-### 3. Restart Codex Desktop
-
-Quit and reopen the app so it reloads `config.toml`.
-
-### 4. Confirm traffic
-
-Open a coding session, then check:
-
-- Dashboard recent rows for `/v1/responses`
-- `tail -n 5 ~/.oxpipe/events.jsonl`
-
-### Notes
-
-- Auth stays your normal Codex / ChatGPT login or `OPENAI_API_KEY`; oxpipe only changes the base URL and forwards `Authorization`.
-- Codex uses the **Responses** API (`/v1/responses`), which oxpipe supports.
-- Warm, nearly fully cached prompts can show a low Saved % even when oxpipe is working; savings show up more when large uncached slabs or history collapse are imaged.
-- Bail out: dashboard kill switch, or comment out `openai_base_url` and restart Codex.
-
-## Run on macOS (Codex Desktop)
-
-Typical Mac workflow:
-
-```bash
-# Terminal 1 — proxy
-cd ~/projects/oxpipe
-source .venv/bin/activate
-export OXPIPE_MODELS=gpt-5.5,gpt-5.6
-oxpipe serve
-```
-
-Open the dashboard in Safari/Chrome: **http://127.0.0.1:47822/**
-
-Edit **`~/.codex/config.toml`** (same path on macOS as Linux):
+Match `model` to whatever Desktop actually offers (e.g. `gpt-5.5` only). Remove any leftover:
 
 ```toml
-model = "gpt-5.6"
-openai_base_url = "http://127.0.0.1:47822/v1"
+# do not use with ChatGPT-only login — causes api.responses.write 401
+# openai_base_url = "http://127.0.0.1:47822/v1"
 ```
 
-Then **fully quit Codex** (Codex menu → Quit, or `Cmd+Q`) and reopen it so the config reloads.
+### 4. Restart Codex Desktop
 
-Confirm:
+Fully quit (**Cmd+Q** / Codex → Quit) and reopen so it reloads `config.toml` and picks up `OPENAI_API_KEY`.
 
-```bash
-# Terminal 2
-tail -f ~/.oxpipe/events.jsonl
-# use Codex; you should see /v1/responses rows appear
-```
+If Desktop reports the env key missing, the GUI process still cannot see `OPENAI_API_KEY` — redo the `launchctl setenv` / shell-launch step above.
 
-macOS notes:
+### 5. Confirm traffic and savings
 
-- Use `127.0.0.1`, not `localhost`, if anything fails to connect (IPv6 `::1` quirks).
-- Local firewall prompts: allow Python/oxpipe inbound on port **47822** if macOS asks.
-- Events and config live under your home directory: `~/.oxpipe/`, `~/.codex/`.
-- `oxpipe doctor` checks fonts + prints the dashboard URL.
+Use a **Codex** coding session (plain ChatGPT chat in the same app often never hits `~/.codex/config.toml`).
 
+Then check:
+
+- Dashboard: Requests / Imaged counters, recent `/v1/responses` rows, `saved_eff`
+- `tail -f ~/.oxpipe/events.jsonl` — look for `applied: true`, `baseline_source: "input_tokens.count"`
+
+Example of a healthy imaged turn: baseline tens of thousands of tokens with a large positive `saved_eff`.
+
+### Troubleshooting
+
+| Symptom | Likely cause |
+|---|---|
+| `Missing scopes: api.responses.write` | ChatGPT login + oxpipe / `openai_base_url`; switch to funded `OPENAI_API_KEY` + custom provider |
+| `OPENAI_API_KEY` / env key not found | Desktop launched without the env var; use `launchctl setenv` or launch from a shell |
+| “Hit your usage limit” | Unfunded / over-budget API org, or ChatGPT Codex plan caps if not on API key |
+| oxpipe running but dashboard stays at 0 | `OXPIPE_MODELS=off` (passthrough not logged); allowlist `gpt-5.5` or toggle chips |
+| Codex works, dashboard empty | Requests never reach `127.0.0.1:47822` — wrong config file, still on ChatGPT chat, or didn’t Cmd+Q |
+| Warm prompts, tiny Saved % | Expected when almost everything is cached; savings show on large uncached / history slabs |
+
+Bail out: dashboard kill switch, or remove `model_provider = "oxpipe"` and restart Codex.
+
+### macOS notes
+
+- Prefer `127.0.0.1` over `localhost` (IPv6 `::1` quirks).
+- Allow Python/oxpipe on port **47822** if the firewall prompts.
+- Events / config: `~/.oxpipe/`, `~/.codex/`.
+- `oxpipe doctor` checks fonts and prints the dashboard URL.
 ## Dashboard
 
 With `oxpipe serve` running, open:
